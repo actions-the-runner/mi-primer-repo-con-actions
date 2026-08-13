@@ -21,8 +21,10 @@ jobs:
         with:
           java-version: '21'
           distribution: temurin
-      - run: mvn clean package
-      - run: echo ${env.NOMBRE_DEL_REPO}
+      - run: echo ${{env.NOMBRE_DEL_REPO}}
+      - run: |
+           REPO=${{env.NOMBRE_DEL_REPO}}-DEV
+           echo $REPO
 
 
 
