@@ -33,6 +33,7 @@ jobs:
           echo ${{secrets.MI_SECRET}}
   anidado:
     name: prueba de needs
+    needs: build
     runs-on: ubuntu-latest
 
     steps:
