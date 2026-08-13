@@ -21,10 +21,19 @@ jobs:
         with:
           java-version: '21'
           distribution: temurin
-      - run: echo ${{env.NOMBRE_DEL_REPO}}
-      - run: |
-           REPO=${{env.NOMBRE_DEL_REPO}}-DEV
-           echo $REPO
+      - name: MOSTRANDO Variable DENTRO DEL yml    
+        run: echo ${{env.NOMBRE_DEL_REPO}}
+      - name: CREANDO variable en ejecucion  
+        run: |
+            REPO=${{env.NOMBRE_DEL_REPO}}-DEV
+            echo $REPO
+      - name: Mostrando variable tomado desde github
+        run: |
+          echo ${{vars.MI_REPO}}
+          echo ${{secrets.MI_SECRET}}
+       
+    
+        
 
 
 
