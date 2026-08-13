@@ -17,7 +17,7 @@ jobs:
         with:
           java-version: '21'
           distribution: temurin
-      - run: java version
+      - run: mvn clean package
 
 
 
