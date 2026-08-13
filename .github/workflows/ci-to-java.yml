@@ -43,7 +43,7 @@ jobs:
       - name: Restaurar binario compilado en build
         uses: actions/download-artifact@v7
         with:
-          name: compilacion-and-generate
+          name: compilacion-and-generate-artifact
           path: target/
       - name: Ejecutar pruebas unitarias
         run: mvn -B test
