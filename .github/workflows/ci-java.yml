@@ -9,8 +9,12 @@ env:
 
 jobs:
   build:
-    name: Build
-    runs-on: ubuntu-latest
+    name: Build to Matrix
+    runs-on: ${{matrix.os}}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windons-latest,macos-latest]
+        node-version: [18,21 ,20]
 
     steps:
       - name: Clone repo workspace actions
