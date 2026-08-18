@@ -87,11 +87,40 @@ jobs:
         with:
           name: compilacion-and-generate-artifact
           path: target/
-      - name: Configurar credenciales de Nexus
+      - name: Extraer Parametros de Jar
+        id: extraer_parametros
         run: |
-          curl http://localhost:8081/repository/maven-snapshots -u ${{ secrets.NEXUS_USERNAME }}:${{ secrets.NEXUS_PASSWORD }} \
-               --upload-file target/gestiontareas-0.0.2-SNAPSHOT.jar
+          GROUP_ID=$(mvn -q -B help:evaluate -Dexpression=project.groupId -q -DforceStdout)
+          ARTIFACT_ID=$(mvn -q -B help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
+          VERSION=$(mvn -q -B help:evaluate -Dexpression=project.version -q -DforceStdout)
 
+          echo "group_id=$GROUP_ID" >> $GITHUB_OUTPUT
+          echo "artifact_id=$ARTIFACT_ID" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Determinando carpeta de destino en Nexus
+        id: determinar_destino
+        env:
+          NEXUS_RELEASES_URL: ${{ vars.NEXUS_RELEASES_URL }}
+          NEXUS_SNAPSHOTS_URL: ${{ vars.NEXUS_SNAPSHOTS_URL }}
+        run: |
+          if [[ ${{ steps.extraer_parametros.outputs.version }} == *-SNAPSHOT ]]; then
+            echo "destino=$NEXUS_SNAPSHOTS_URL" >> $GITHUB_OUTPUT
+          else
+            echo "destino=$NEXUS_RELEASES_URL" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publicar en Nexus
+        env:
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+        run: |
+          curl -sSf -u "$NEXUS_USERNAME:$NEXUS_PASSWORD" \
+            -F "maven2.groupId=${{ steps.extraer_parametros.outputs.group_id }}" \
+            -F "maven2.artifactId=${{ steps.extraer_parametros.outputs.artifact_id }}" \
+            -F "maven2.version=${{ steps.extraer_parametros.outputs.version }}" \
+            "http://localhost:8081/service/rest/v1/components?repository=${{ steps.determinar_destino.outputs.destino }}" 
+               
 
 
 
