@@ -90,7 +90,7 @@ jobs:
       - name: Configurar credenciales de Nexus
         run: |
           curl http://localhost:8081/repository/maven-snapshots -u ${{ secrets.NEXUS_USERNAME }}:${{ secrets.NEXUS_PASSWORD }} \
-               --upload-file target/*.jar
+               --upload-file target/gestiontareas-0.0.2-SNAPSHOT.jar
 
 
 
