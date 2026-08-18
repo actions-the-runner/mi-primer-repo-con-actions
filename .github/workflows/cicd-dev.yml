@@ -1,7 +1,9 @@
-name: CI to java
+name: CI-DEV-JAVA
 on:
   push:
-    branches: [master]
+    branches: [develop]
+  pull_request:
+    branches: [develop]
     
 jobs:
   build:
@@ -47,3 +49,25 @@ jobs:
           path: target/
       - name: Ejecutar pruebas unitarias
         run: mvn -B test
+  
+  package:
+    name: Empaquetar codigo
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repo workspace actions
+        uses: actions/checkout@v7
+      - name: download actions java
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: temurin
+      - name: Restaurar binario compilado en build
+        uses: actions/download-artifact@v7
+        with:
+          name: compilacion-and-generate-artifact
+          path: target/
+      - name: Ejecutar pruebas unitarias
+        run: mvn clean package -DskipTests
+
+
