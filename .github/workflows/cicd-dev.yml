@@ -115,7 +115,7 @@ jobs:
           NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
           NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
         run: |
-          curl -sSf -u "$NEXUS_USERNAME:$NEXUS_PASSWORD" \
+          curl -sSf -u ${{ secrets.NEXUS_USERNAME }}:${{ secrets.NEXUS_PASSWORD }}" \
             -F "maven2.groupId=${{ steps.extraer_parametros.outputs.group_id }}" \
             -F "maven2.artifactId=${{ steps.extraer_parametros.outputs.artifact_id }}" \
             -F "maven2.version=${{ steps.extraer_parametros.outputs.version }}" \
