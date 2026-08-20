@@ -49,6 +49,13 @@ jobs:
           path: target/
       - name: Ejecutar pruebas unitarias
         run: mvn -B test
+
+      - name: compartir test generados
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-generados
+          path: target/
+    
   
   package:
     name: Empaquetar codigo
@@ -65,10 +72,17 @@ jobs:
       - name: Restaurar binario compilado en build
         uses: actions/download-artifact@v7
         with:
-          name: compilacion-and-generate-artifact
+          name: test-generados
           path: target/
       - name: Ejecutar pruebas unitarias
-        run: mvn clean package -DskipTests
+        run: mvn -B package -DskipTests
+
+      - name: compartir package generado
+        uses: actions/upload-artifact@v7
+        with:
+          name: package-generado
+          path: target/
+          retention-days: 1
   
   public-nexus:
     name: Publicar en Nexus
@@ -85,7 +99,7 @@ jobs:
       - name: Restaurar binario compilado en build
         uses: actions/download-artifact@v7
         with:
-          name: compilacion-and-generate-artifact
+          name: package-generado
           path: target/
       - name: Extraer Parametros de Jar
         id: extraer_parametros
@@ -111,16 +125,12 @@ jobs:
           fi
 
       - name: Publicar en Nexus
-        env:
-          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
         run: |
-          curl -sSf -u ${{ secrets.NEXUS_USERNAME }}:${{ secrets.NEXUS_PASSWORD }}" \
+          JAR_FILE=$(find target -maxdepth 1 -name "*.jar" ! -name "*-sources.jar" ! -name "*-javadoc.jar" | head -n 1)
+          curl -sSf -u ${{ secrets.NEXUS_USERNAME }}:${{ secrets.NEXUS_PASSWORD }} \
             -F "maven2.groupId=${{ steps.extraer_parametros.outputs.group_id }}" \
             -F "maven2.artifactId=${{ steps.extraer_parametros.outputs.artifact_id }}" \
             -F "maven2.version=${{ steps.extraer_parametros.outputs.version }}" \
+            -F "maven2.asset1=@$JAR_FILE" \
+            -F "maven2.asset1.extension=jar" \
             "http://localhost:8081/service/rest/v1/components?repository=${{ steps.determinar_destino.outputs.destino }}" 
-               
-
-
-
