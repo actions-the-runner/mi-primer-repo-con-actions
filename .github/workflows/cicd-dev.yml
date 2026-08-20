@@ -142,17 +142,49 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+
       - name: Build and Push Docker Image
         env:
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/ntt-class:$IMAGE_TAG .
+          docker build -t ${{ vars.DOCKERHUB_USERNAME }}/ntt-class:$IMAGE_TAG .
       - name: Push Docker Image
         env:
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/ntt-class:$IMAGE_TAG
+          IMAGE=${{ vars.DOCKERHUB_USERNAME }}/ntt-class:$IMAGE_TAG
           docker push $IMAGE:IMAGE_TAG
-          docker tag $IMAGE:dev        
+          docker tag $IMAGE:dev
+
+          echo "image=$IMAGE:IMAGE_TAG" >> "$GITHUB_OUTPUT"
+  deploy:
+    name: Deploy to minikube
+    needs: docker-hub-push
+    runs-on: self-hosted
+    steps:
+      - name: Clone repositori
+        uses: actions/checkout@v7
+      
+      - name: Crear secret en k8s minikube
+        run: |
+          kubectl create secret generic nttdata-secret \
+            --from-literal=SPRING_DATASOURCE_USERNAME=${{ secrets.SPRING_DATASOURCE_USERNAME }} \
+            --from-literal=SPRING_DATASOURCE_PASSWORD=${{ secrets.SPRING_DATASOURCE_PASSWORD }} \
+            --from-literal=JWT_PRIVATE_KEY=${{ secrets.JWT_PRIVATE_KEY }} \
+            --from-literal=AWS_S3_BUCKET=${{ secrets.AWS_S3_BUCKET }}
+      - name: custom kustomize
+        uses: imranismail/setup-kustomize@v3
+      
+      - name: Pull Tag and deploy
+        working-directory: k8s/manifest/overlays/dev
+        run: kustomize edit set image nttdata=${{ needs.docker-hub-push.outputs.image }}
+      
+      - name: aplicar manifestos k8s
+        working-directory: k8s/manifest/overlays/dev
+        run: kubectl apply -k .
+       
+         
+          

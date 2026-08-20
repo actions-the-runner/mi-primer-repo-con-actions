@@ -5,7 +5,7 @@ metadata:
 data:
   SPRING_DATASOURCE_DRIVER_CLASS_NAME: "com.mysql.cj.jdbc.Driver"
   SPRING_JPA_DATABASE_PLATFORM: "org.hibernate.dialect.MySQL8Dialect"
-  DB_HOST: "nttdata-db.cudms8mk6u5r.us-east-1.rds.amazonaws.com"
+  DB_HOST: ""
   DB_PORT: "3306"
   AWS_S3_REGION: "us-east-1"
   SPRING_JPA_HIBERNATE_DDL_AUTO: "validate"
