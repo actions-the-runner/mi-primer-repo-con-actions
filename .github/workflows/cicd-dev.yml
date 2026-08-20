@@ -155,13 +155,13 @@ jobs:
         env:
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t ${{ vars.DOCKERHUB_USERNAME }}/${{ vars.DOCKERHUB_REPOSITORY }}:$IMAGE_TAG .
+          docker build -t ${{ vars.DOCKERHUB_USERNAME }}/${{ env.DOCKERHUB_REPOSITORY }}:$IMAGE_TAG .
       - name: Push Docker Image
         id: push-image
         env:
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          IMAGE=${{ vars.DOCKERHUB_USERNAME }}/${{ vars.DOCKERHUB_REPOSITORY }}:$IMAGE_TAG
+          IMAGE=${{ vars.DOCKERHUB_USERNAME }}/${{ env.DOCKERHUB_REPOSITORY }}:$IMAGE_TAG
           docker push $IMAGE:IMAGE_TAG
           docker tag $IMAGE:dev
 
