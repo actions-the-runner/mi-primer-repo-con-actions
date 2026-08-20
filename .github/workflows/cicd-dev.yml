@@ -101,36 +101,57 @@ jobs:
         with:
           name: package-generado
           path: target/
-      - name: Extraer Parametros de Jar
-        id: extraer_parametros
+      - name: Configurar Nexus
         run: |
-          GROUP_ID=$(mvn -q -B help:evaluate -Dexpression=project.groupId -q -DforceStdout)
-          ARTIFACT_ID=$(mvn -q -B help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
-          VERSION=$(mvn -q -B help:evaluate -Dexpression=project.version -q -DforceStdout)
+          mkdir -p ~/.m2
+          cat <<EOF > ~/.m2/settings.xml
+          <settings>
+            <servers>
+              <server>
+                <id>nexus-releases</id>
+                <username>${secrets.NEXUS_USERNAME}</username>
+                <password>${secrets.NEXUS_PASSWORD}</password>
+              </server>
+              <server>
+                <id>nexus-snapshots</id>
+                <username>${secrets.NEXUS_USERNAME}</username>
+                <password>${secrets.NEXUS_PASSWORD}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
 
-          echo "group_id=$GROUP_ID" >> $GITHUB_OUTPUT
-          echo "artifact_id=$ARTIFACT_ID" >> $GITHUB_OUTPUT
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Determinando carpeta de destino en Nexus
-        id: determinar_destino
+      - name: Publicar en Nexus
         env:
           NEXUS_RELEASES_URL: ${{ vars.NEXUS_RELEASES_URL }}
           NEXUS_SNAPSHOTS_URL: ${{ vars.NEXUS_SNAPSHOTS_URL }}
+        run: mvn deploy -DskipTests
+    
+  docker-hub-push:
+    name: Docker Build an Push
+    needs: public-nexus
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repo workspace actions
+        uses: actions/checkout@v7
+      - name: Restaurar binario compilado en build
+        uses: actions/download-artifact@v7
+        with:
+          name: package-generado
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and Push Docker Image
+        env:
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          if [[ ${{ steps.extraer_parametros.outputs.version }} == *-SNAPSHOT ]]; then
-            echo "destino=$NEXUS_SNAPSHOTS_URL" >> $GITHUB_OUTPUT
-          else
-            echo "destino=$NEXUS_RELEASES_URL" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Publicar en Nexus
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/ntt-class:$IMAGE_TAG .
+      - name: Push Docker Image
+        env:
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          JAR_FILE=$(find target -maxdepth 1 -name "*.jar" ! -name "*-sources.jar" ! -name "*-javadoc.jar" | head -n 1)
-          curl -sSf -u ${{ secrets.NEXUS_USERNAME }}:${{ secrets.NEXUS_PASSWORD }} \
-            -F "maven2.groupId=${{ steps.extraer_parametros.outputs.group_id }}" \
-            -F "maven2.artifactId=${{ steps.extraer_parametros.outputs.artifact_id }}" \
-            -F "maven2.version=${{ steps.extraer_parametros.outputs.version }}" \
-            -F "maven2.asset1=@$JAR_FILE" \
-            -F "maven2.asset1.extension=jar" \
-            "http://localhost:8081/service/rest/v1/components?repository=${{ steps.determinar_destino.outputs.destino }}" 
+          IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/ntt-class:$IMAGE_TAG
+          docker push $IMAGE:IMAGE_TAG
+          docker tag $IMAGE:dev        
