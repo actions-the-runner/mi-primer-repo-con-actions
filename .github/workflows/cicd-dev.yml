@@ -4,7 +4,10 @@ on:
     branches: [develop]
   pull_request:
     branches: [develop]
-    
+
+env: 
+  DOCKERHUB_REPOSITORY: nattclass
+
 jobs:
   build:
     name: Build
@@ -131,6 +134,8 @@ jobs:
     name: Docker Build an Push
     needs: public-nexus
     runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.push-image.outputs.image }}
     steps:
       - name: Clone repo workspace actions
         uses: actions/checkout@v7
@@ -150,12 +155,13 @@ jobs:
         env:
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t ${{ vars.DOCKERHUB_USERNAME }}/ntt-class:$IMAGE_TAG .
+          docker build -t ${{ vars.DOCKERHUB_USERNAME }}/${{ vars.DOCKERHUB_REPOSITORY }}:$IMAGE_TAG .
       - name: Push Docker Image
+        id: push-image
         env:
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          IMAGE=${{ vars.DOCKERHUB_USERNAME }}/ntt-class:$IMAGE_TAG
+          IMAGE=${{ vars.DOCKERHUB_USERNAME }}/${{ vars.DOCKERHUB_REPOSITORY }}:$IMAGE_TAG
           docker push $IMAGE:IMAGE_TAG
           docker tag $IMAGE:dev
 
