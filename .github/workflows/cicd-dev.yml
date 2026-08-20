@@ -162,10 +162,10 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           IMAGE="${{ vars.DOCKERHUB_USERNAME }}/${{ env.DOCKERHUB_REPOSITORY }}"
-          docker push $IMAGE:IMAGE_TAG
-          docker tag $IMAGE:IMAGE_TAG $IMAGE:dev
+          docker push $IMAGE:$IMAGE_TAG
+          docker tag $IMAGE:$IMAGE_TAG $IMAGE:dev
 
-          echo "image=$IMAGE:IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "image=$IMAGE:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
   deploy:
     name: Deploy to minikube
     needs: docker-hub-push
