@@ -177,6 +177,7 @@ jobs:
       - name: Crear secret en k8s minikube
         run: |
           kubectl create secret generic nttdata-secret \
+            --namespace ntt-data-dev \
             --from-literal=SPRING_DATASOURCE_USERNAME=${{ secrets.SPRING_DATASOURCE_USERNAME }} \
             --from-literal=SPRING_DATASOURCE_PASSWORD=${{ secrets.SPRING_DATASOURCE_PASSWORD }} \
             --from-literal=JWT_PRIVATE_KEY=${{ secrets.JWT_PRIVATE_KEY }} \
