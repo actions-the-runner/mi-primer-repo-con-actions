@@ -8,7 +8,7 @@ metadata:
     alb.ingress.kubernetes.io/target-type: "ip"
 spec:
   rules:
-    - host: api.tu-dominio.com   # cada overlay lo sobreescribe con su propio host
+    - host: api.tu-dominio.com  
       http:
         paths:
           - path: /

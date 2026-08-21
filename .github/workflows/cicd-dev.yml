@@ -194,6 +194,9 @@ jobs:
       - name: aplicar manifestos k8s
         working-directory: k8s/manifest/overlays/dev
         run: kubectl apply -k .
+        
+      - name: Esperar a que el rollout termine
+        run: kubectl rollout status deployment/gestiontareas -n gestion-tareas-dev --timeout=120s
        
          
           
