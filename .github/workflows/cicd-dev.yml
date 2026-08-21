@@ -180,7 +180,9 @@ jobs:
             --from-literal=SPRING_DATASOURCE_USERNAME=${{ secrets.SPRING_DATASOURCE_USERNAME }} \
             --from-literal=SPRING_DATASOURCE_PASSWORD=${{ secrets.SPRING_DATASOURCE_PASSWORD }} \
             --from-literal=JWT_PRIVATE_KEY=${{ secrets.JWT_PRIVATE_KEY }} \
-            --from-literal=AWS_S3_BUCKET=${{ secrets.AWS_S3_BUCKET }}
+            --from-literal=AWS_S3_BUCKET=${{ secrets.AWS_S3_BUCKET }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+
       - name: custom kustomize
         uses: imranismail/setup-kustomize@v3
       
