@@ -1,6 +1,5 @@
-CREATE DATABASE GestionTareas;
-USE GestionTareas;
-
+CREATE DATABASE CURSE;
+USE CURSE;
 CREATE TABLE cargo (
         id INT NOT NULL AUTO_INCREMENT,
         cargo_nombre VARCHAR(30) NOT NULL,
