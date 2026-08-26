@@ -101,7 +101,7 @@ jobs:
       eks-cluster-name: ${{ vars.EKS_CLUSTER_NAME }}
       db-name: ${{ vars.DB_NAME }}
       s3-bucket-name: ${{ vars.S3_BUCKET_NAME }}
-      ingress-host: ${{ vars.INGRESS_HOST }}
+      ingress-host: ${{ needs.setup.outputs.deploy_target == 'cloud' && vars.INGRESS_HOST_CLOUD || vars.INGRESS_HOST_ONPREM }}
     secrets:
       SPRING_DATASOURCE_USERNAME: ${{ secrets.SPRING_DATASOURCE_USERNAME }}
       SPRING_DATASOURCE_PASSWORD: ${{ secrets.SPRING_DATASOURCE_PASSWORD }}
