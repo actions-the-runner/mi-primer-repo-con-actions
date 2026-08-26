@@ -2,9 +2,9 @@ name: CI/CD
 
 on:
   push:
-    branches: [develop, master]
+    branches: [develop]
   pull_request:
-    branches: [develop, master]
+    branches: [develop]
   workflow_dispatch:
     inputs:
       deploy-target:
@@ -63,6 +63,10 @@ jobs:
   docker-push:
     needs: [setup, nexus-publish]
     uses: ./.github/workflows/docker-push.yml
+    permissions:
+      contents: read
+      id-token: write 
+      security-events: write
     with:
       target: ${{ needs.setup.outputs.deploy_target }}
       dockerhub-repository: ${{ vars.DOCKERHUB_REPOSITORY }}
@@ -79,6 +83,10 @@ jobs:
   deploy:
     needs: [setup, docker-push]
     uses: ./.github/workflows/k8s-deploy.yml
+    permissions:
+      contents: read
+      id-token: write 
+      security-events: write
     with:
       cluster-type: ${{ needs.setup.outputs.deploy_target == 'cloud' && 'eks' || 'minikube' }}
       runner: ${{ needs.setup.outputs.deploy_target == 'cloud' && 'ubuntu-latest' || 'self-hosted' }}
