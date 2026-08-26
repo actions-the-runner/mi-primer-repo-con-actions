@@ -11,7 +11,6 @@ on:
         description: "Forzar destino (si no lo tocas, usa la variable DEPLOY_TARGET del repo)"
         type: choice
         options: [onpremise, cloud]
-
 env:
   DEPLOY_TARGET: ${{ github.event.inputs.deploy-target || vars.DEPLOY_TARGET }}
 
@@ -65,7 +64,7 @@ jobs:
 
   deploy:
     needs: docker-push
-    uses: ./.github/workflows/deploy-k8s.yml
+    uses: ./.github/workflows/k8s-deploy.yml
     with:
       cluster-type: ${{ env.DEPLOY_TARGET == 'cloud' && 'eks' || 'minikube' }}
       runner: ${{ env.DEPLOY_TARGET == 'cloud' && 'ubuntu-latest' || 'self-hosted' }}
