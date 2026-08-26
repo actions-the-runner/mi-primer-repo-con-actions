@@ -78,7 +78,7 @@ jobs:
 
   deploy:
     needs: [setup, docker-push]
-    uses: ./.github/workflows/deploy-k8s.yml
+    uses: ./.github/workflows/k8s-deploy.yml
     with:
       cluster-type: ${{ needs.setup.outputs.deploy_target == 'cloud' && 'eks' || 'minikube' }}
       runner: ${{ needs.setup.outputs.deploy_target == 'cloud' && 'ubuntu-latest' || 'self-hosted' }}
