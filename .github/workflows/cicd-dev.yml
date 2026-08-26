@@ -1,202 +1,87 @@
-name: CI-DEV-JAVA
+name: CI/CD
+
 on:
   push:
-    branches: [develop]
+    branches: [develop, master]
   pull_request:
-    branches: [develop]
+    branches: [develop, master]
+  workflow_dispatch:
+    inputs:
+      deploy-target:
+        description: "Forzar destino (si no lo tocas, usa la variable DEPLOY_TARGET del repo)"
+        type: choice
+        options: [onpremise, cloud]
 
-env: 
-  DOCKERHUB_REPOSITORY: nattclass
+env:
+  DEPLOY_TARGET: ${{ github.event.inputs.deploy-target || vars.DEPLOY_TARGET }}
 
 jobs:
   build:
-    name: Build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Clone repo workspace actions
-        uses: actions/checkout@v7
-
-      - name: download actions java
-        uses: actions/setup-java@v5
-        with:
-          java-version: '21'
-          distribution: temurin
-
-      - name: Compilar Java
-        run: mvn -B clean compile
-
-      - name: compartir compilacion
-        uses: actions/upload-artifact@v7
-        with:
-          name: compilacion-and-generate-artifact
-          path: target/
+    uses: ./.github/workflows/build.yml
 
   test:
-    name: Pruebas unitarias
     needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Clone repo workspace actions
-        uses: actions/checkout@v7
-        
-      - name: download actions java
-        uses: actions/setup-java@v5
-        with:
-          java-version: '21'
-          distribution: temurin
-      - name: Restaurar binario compilado en build
-        uses: actions/download-artifact@v7
-        with:
-          name: compilacion-and-generate-artifact
-          path: target/
-      - name: Ejecutar pruebas unitarias
-        run: mvn -B test
+    uses: ./.github/workflows/test.yml
 
-      - name: compartir test generados
-        uses: actions/upload-artifact@v7
-        with:
-          name: test-generados
-          path: target/
-    
-  
   package:
-    name: Empaquetar codigo
     needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Clone repo workspace actions
-        uses: actions/checkout@v7
-      - name: download actions java
-        uses: actions/setup-java@v5
-        with:
-          java-version: '21'
-          distribution: temurin
-      - name: Restaurar binario compilado en build
-        uses: actions/download-artifact@v7
-        with:
-          name: test-generados
-          path: target/
-      - name: Ejecutar pruebas unitarias
-        run: mvn -B package -DskipTests
+    uses: ./.github/workflows/package.yml
+    with:
+      skip-tests: false
 
-      - name: compartir package generado
-        uses: actions/upload-artifact@v7
-        with:
-          name: package-generado
-          path: target/
-          retention-days: 1
-  
-  public-nexus:
-    name: Publicar en Nexus
+  sonar-analysis:
     needs: package
-    runs-on: self-hosted
-    steps:
-      - name: Clone repo workspace actions
-        uses: actions/checkout@v7
-      - name: download actions java
-        uses: actions/setup-java@v5
-        with:
-          java-version: '21'
-          distribution: temurin
-      - name: Restaurar binario compilado en build
-        uses: actions/download-artifact@v7
-        with:
-          name: package-generado
-          path: target/
-      - name: Configurar Nexus
-        run: |
-          mkdir -p ~/.m2
-          cat <<EOF > ~/.m2/settings.xml
-          <settings>
-            <servers>
-              <server>
-                <id>nexus-releases</id>
-                <username>${{ secrets.NEXUS_USERNAME }}</username>
-                <password>${{ secrets.NEXUS_PASSWORD }}</password>
-              </server>
-              <server>
-                <id>nexus-snapshots</id>
-                <username>${{ secrets.NEXUS_USERNAME }}</username>
-                <password>${{ secrets.NEXUS_PASSWORD }}</password>
-              </server>
-            </servers>
-          </settings>
-          EOF
+    if: ${{ vars.ENABLE_SONAR == 'true' }}
+    uses: ./.github/workflows/sonar.yml
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-      - name: Publicar en Nexus
-        env:
-          NEXUS_RELEASES_URL: ${{ vars.NEXUS_RELEASES_URL }}
-          NEXUS_SNAPSHOTS_URL: ${{ vars.NEXUS_SNAPSHOTS_URL }}
-        run: mvn deploy -DskipTests
-    
-  docker-hub-push:
-    name: Docker Build an Push
-    needs: public-nexus
-    runs-on: ubuntu-latest
-    outputs:
-      image: ${{ steps.push-image.outputs.image }}
-    steps:
-      - name: Clone repo workspace actions
-        uses: actions/checkout@v7
-      - name: Restaurar binario compilado en build
-        uses: actions/download-artifact@v7
-        with:
-          name: package-generado
-          path: target/
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v4
-        with:
-          username: ${{ vars.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+  nexus-publish:
+    needs: [package, sonar-analysis]
+    if: ${{ always() && !failure() && !cancelled() }}
+    uses: ./.github/workflows/nexus-publish.yml
+    with:
+      runner: ${{ vars.NEXUS_RUNNER || 'ubuntu-latest' }}
+    secrets:
+      NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+      NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
 
 
-      - name: Build and Push Docker Image
-        env:
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker build -t ${{ vars.DOCKERHUB_USERNAME }}/${{ env.DOCKERHUB_REPOSITORY }}:$IMAGE_TAG .
-      - name: Push Docker Image
-        id: push-image
-        env:
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          IMAGE="${{ vars.DOCKERHUB_USERNAME }}/${{ env.DOCKERHUB_REPOSITORY }}"
-          docker push $IMAGE:$IMAGE_TAG
-          docker tag $IMAGE:$IMAGE_TAG $IMAGE:dev
+  docker-push:
+    needs: nexus-publish
+    uses: ./.github/workflows/docker-push.yml
+    with:
+      target: ${{ env.DEPLOY_TARGET }}
+      dockerhub-repository: ${{ vars.DOCKERHUB_REPOSITORY }}
+      ecr-repository: ${{ vars.ECR_REPOSITORY }}
+      aws-region: ${{ vars.AWS_REGION }}
+      mutable-tag: dev
+      scan-image: ${{ env.DEPLOY_TARGET == 'cloud' }}
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      AWS_GITHUB_ACTIONS_ROLE_ARN: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
 
-          echo "image=$IMAGE:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
   deploy:
-    name: Deploy to minikube
-    needs: docker-hub-push
-    runs-on: self-hosted
-    steps:
-      - name: Clone repositori
-        uses: actions/checkout@v7
-      
-      - name: Crear secret en k8s minikube
-        run: |
-          kubectl create secret generic nttdata-secret \
-            --namespace ntt-data-dev \
-            --from-literal=SPRING_DATASOURCE_USERNAME=${{ secrets.SPRING_DATASOURCE_USERNAME }} \
-            --from-literal=SPRING_DATASOURCE_PASSWORD=${{ secrets.SPRING_DATASOURCE_PASSWORD }} \
-            --from-literal=JWT_PRIVATE_KEY=${{ secrets.JWT_PRIVATE_KEY }} \
-            --from-literal=AWS_S3_BUCKET=${{ secrets.AWS_S3_BUCKET }} \
-            --dry-run=client -o yaml | kubectl apply -f -
-
-      - name: custom kustomize
-        uses: imranismail/setup-kustomize@v3
-      
-      - name: Pull Tag and deploy
-        working-directory: k8s/manifest/overlays/dev
-        run: kustomize edit set image nttdata=${{ needs.docker-hub-push.outputs.image }}
-      
-      - name: aplicar manifestos k8s
-        working-directory: k8s/manifest/overlays/dev
-        run: kubectl apply -k .
-
-      - name: Esperar a que el rollout termine
-        run: kubectl rollout status deployment/nttdata -n ntt-data-dev --timeout=120s
-       
-         
-          
+    needs: docker-push
+    uses: ./.github/workflows/deploy-k8s.yml
+    with:
+      cluster-type: ${{ env.DEPLOY_TARGET == 'cloud' && 'eks' || 'minikube' }}
+      runner: ${{ env.DEPLOY_TARGET == 'cloud' && 'ubuntu-latest' || 'self-hosted' }}
+      namespace: ${{ env.DEPLOY_TARGET == 'cloud' && vars.NAMESPACE_CLOUD || vars.NAMESPACE_ONPREM }}
+      deployment-name: ${{ vars.APP_NAME }}
+      image: ${{ needs.docker-push.outputs.image }}
+      manifests-path: ${{ env.DEPLOY_TARGET == 'cloud' && vars.MANIFESTS_PATH_CLOUD || vars.MANIFESTS_PATH_ONPREM }}
+      manifests-external-repo: ${{ env.DEPLOY_TARGET == 'cloud' && vars.MANIFESTS_EXTERNAL_REPO || '' }}
+      aws-region: ${{ vars.AWS_REGION }}
+      eks-cluster-name: ${{ vars.EKS_CLUSTER_NAME }}
+    secrets:
+      SPRING_DATASOURCE_USERNAME: ${{ secrets.SPRING_DATASOURCE_USERNAME }}
+      SPRING_DATASOURCE_PASSWORD: ${{ secrets.SPRING_DATASOURCE_PASSWORD }}
+      JWT_PRIVATE_KEY: ${{ secrets.JWT_PRIVATE_KEY }}
+      AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+      AWS_S3_ACCESS_KEY_ID: ${{ secrets.AWS_S3_ACCESS_KEY_ID }}
+      AWS_S3_SECRET_ACCESS_KEY: ${{ secrets.AWS_S3_SECRET_ACCESS_KEY }}
+      AWS_GITHUB_ACTIONS_ROLE_ARN: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+      MANIFESTS_REPO_TOKEN: ${{ secrets.MANIFESTS_REPO_TOKEN }}

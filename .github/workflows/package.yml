@@ -1,0 +1,47 @@
+name: Package
+
+on:
+  workflow_call:
+    inputs:
+      java-version:
+        type: string
+        default: "21"
+      skip-tests:
+        description: "mvn package -DskipTests (true) o mvn verify con cobertura (false)"
+        type: boolean
+        default: true
+
+jobs:
+  package:
+    name: Empaquetar
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/download-java-maven
+        with:
+          java-version: ${{ inputs.java-version }}
+
+      - name: Restaurar resultado de tests
+        uses: actions/download-artifact@v8
+        with:
+          name: test-output
+          path: target/
+
+      - name: Empaquetar (skipTests)
+        if: ${{ inputs.skip-tests }}
+        run: mvn -B package -DskipTests
+
+      - name: Empaquetar + verify (con cobertura)
+        if: ${{ !inputs.skip-tests }}
+        run: mvn -B verify -DskipTests
+
+      - name: Subir jar + cobertura
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-output
+          path: |
+            target/*.jar
+            target/site/jacoco/
+            target/classes/
+          retention-days: 1

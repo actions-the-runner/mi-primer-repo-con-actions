@@ -1,0 +1,22 @@
+name: "Setup Java and Maven"
+description: "Instalacion de Java/Temurin y cache de Maven"
+
+inputs:
+  java-version: 
+    description: "Java version to use"
+    required: true
+    default: "21"
+  distribution:
+    description: "Java distribution to use"
+    required: true
+    default: "temurin"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Instalar Java
+      uses: actions/setup-java@v5
+      with:
+        java-version: ${{ inputs.java-version }}
+        distribution: ${{ inputs.distribution }}
+        cache: "maven"

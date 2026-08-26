@@ -1,0 +1,54 @@
+name: Publish to Nexus
+
+on:
+  workflow_call:
+    inputs:
+      java-version:
+        type: string
+        default: "21"
+      runner:
+        description: "ubuntu-latest si Nexus montado en el EC2 dentro de docker, self-hosted para desplegarlo en Cloud-shell"
+        type: string
+        default: "ubuntu-latest"
+    secrets:
+      NEXUS_USERNAME:
+        required: true
+      NEXUS_PASSWORD:
+        required: true
+
+jobs:
+  nexus-publish:
+    name: Publicar en Nexus
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/download-java-maven
+        with:
+          java-version: ${{ inputs.java-version }}
+
+      - name: Configurar credenciales de Nexus
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << EOF
+          <settings>
+            <servers>
+              <server>
+                <id>nexus-releases</id>
+                <username>${{ secrets.NEXUS_USERNAME }}</username>
+                <password>${{ secrets.NEXUS_PASSWORD }}</password>
+              </server>
+              <server>
+                <id>nexus-snapshots</id>
+                <username>${{ secrets.NEXUS_USERNAME }}</username>
+                <password>${{ secrets.NEXUS_PASSWORD }}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
+
+      - name: Publicar en Nexus
+        env:
+          NEXUS_RELEASES_URL: ${{ vars.NEXUS_RELEASES_URL }}
+          NEXUS_SNAPSHOTS_URL: ${{ vars.NEXUS_SNAPSHOTS_URL }}
+        run: mvn -B deploy -DskipTests

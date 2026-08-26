@@ -1,0 +1,102 @@
+name: Deploy to Kubernetes
+
+on:
+  workflow_call:
+    inputs:
+      cluster-type:
+        description: "minikube (self-hosted, kubeconfig local) o eks (AWS)"
+        type: string
+        required: true 
+      runner:
+        type: string
+        default: "self-hosted"
+      namespace:
+        type: string
+        required: true
+      deployment-name:
+        type: string
+        required: true
+      image:
+        type: string
+        required: true
+      manifests-path:
+        description: "Carpeta con kustomization.yaml (overlay del entorno)"
+        type: string
+        default: "k8s/manifest/overlays/dev"
+      manifests-external-repo:
+        description: "Repo externo con los manifiestos (vacio = usar el mismo repo)"
+        type: string
+        default: ""
+      aws-region:
+        type: string
+        default: "us-east-1"
+      eks-cluster-name:
+        type: string
+        default: ""
+    secrets:
+      SPRING_DATASOURCE_USERNAME:
+        required: true
+      SPRING_DATASOURCE_PASSWORD:
+        required: true
+      JWT_PRIVATE_KEY:
+        required: true
+      AWS_S3_BUCKET:
+        required: false
+      AWS_S3_ACCESS_KEY_ID:
+        required: false
+      AWS_S3_SECRET_ACCESS_KEY:
+        required: false
+      AWS_GITHUB_ACTIONS_ROLE_ARN:
+        required: false
+      MANIFESTS_REPO_TOKEN:
+        required: false
+
+jobs:
+  deploy:
+    name: Deploy a ${{ inputs.cluster-type }}
+    runs-on: ${{ inputs.runner }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout (repo propio o externo de manifiestos)
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ inputs.manifests-external-repo != '' && inputs.manifests-external-repo || github.repository }}
+          token: ${{ inputs.manifests-external-repo != '' && secrets.MANIFESTS_REPO_TOKEN || github.token }}
+
+      - name: Configurar credenciales AWS (solo EKS)
+        if: inputs.cluster-type == 'eks'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          aws-region: ${{ inputs.aws-region }}
+
+      - name: Actualizar kubeconfig del cluster EKS
+        if: inputs.cluster-type == 'eks'
+        run: aws eks update-kubeconfig --name ${{ inputs.eks-cluster-name }} --region ${{ inputs.aws-region }}
+
+
+      - name: Crear/actualizar Secret en k8s
+        run: |
+          kubectl create secret generic ${{ inputs.deployment-name }}-secret \
+            --namespace ${{ inputs.namespace }} \
+            --from-literal=SPRING_DATASOURCE_USERNAME=${{ secrets.SPRING_DATASOURCE_USERNAME }} \
+            --from-literal=SPRING_DATASOURCE_PASSWORD=${{ secrets.SPRING_DATASOURCE_PASSWORD }} \
+            --from-literal=JWT_PRIVATE_KEY=${{ secrets.JWT_PRIVATE_KEY }} \
+            --from-literal=AWS_S3_BUCKET=${{ secrets.AWS_S3_BUCKET }} \
+            --from-literal=AWS_ACCESS_KEY_ID=${{ secrets.AWS_S3_ACCESS_KEY_ID }} \
+            --from-literal=AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_S3_SECRET_ACCESS_KEY }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - uses: imranismail/setup-kustomize@v3
+
+      - name: Fijar tag de la imagen
+        working-directory: ${{ inputs.manifests-path }}
+        run: kustomize edit set image ${{ inputs.deployment-name }}=${{ inputs.image }}
+
+      - name: Aplicar manifiestos
+        run: kubectl apply -k ${{ inputs.manifests-path }}
+
+      - name: Esperar rollout
+        run: kubectl rollout status deployment/${{ inputs.deployment-name }} -n ${{ inputs.namespace }} --timeout=180s

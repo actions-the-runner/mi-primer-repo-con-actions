@@ -1,0 +1,42 @@
+name: Test
+
+on:
+  workflow_call:
+    inputs:
+      java-version:
+        type: string
+        default: "21"
+
+jobs:
+  test:
+    name: Pruebas unitarias
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/download-java-maven
+        with:
+          java-version: ${{ inputs.java-version }}
+
+      - name: Restaurar clases compiladas
+        uses: actions/download-artifact@v8
+        with:
+          name: compiled-classes
+          path: target/
+
+      - name: Ejecutar pruebas unitarias
+        run: mvn -B test
+
+      - name: Guardar reportes de fallos (solo si fallan)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: target/surefire-reports/
+
+      - name: Subir resultado de tests (clases + jacoco.exec)
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-output
+          path: target/
+          retention-days: 1

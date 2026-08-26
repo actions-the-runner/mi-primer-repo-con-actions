@@ -1,0 +1,45 @@
+name: Sonar Analysis
+
+on:
+  workflow_call:
+    inputs:
+      java-version:
+        type: string
+        default: "21"
+    secrets:
+      SONAR_TOKEN:
+        required: true
+
+jobs:
+  sonar-analysis:
+    name: Analizar con SonarCloud
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/download-java-maven
+        with:
+          java-version: ${{ inputs.java-version }}
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+
+      - name: Restaurar jar y cobertura
+        uses: actions/download-artifact@v8
+        with:
+          name: build-output
+          path: target/
+
+      - name: Analizar con SonarCloud
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: >
+          mvn -B sonar:sonar
+          -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
+          -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
+          -Dsonar.host.url=${{ vars.SONAR_HOST_URL }}
