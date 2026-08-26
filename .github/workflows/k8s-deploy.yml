@@ -33,6 +33,15 @@ on:
       eks-cluster-name:
         type: string
         default: ""
+      db_name:
+        type: string
+        default: ""
+      s3-bucket-name:
+        type: string
+        default: ""
+      ingress-host:
+        type: string
+        default: ""
     secrets:
       SPRING_DATASOURCE_USERNAME:
         required: true
@@ -90,6 +99,26 @@ jobs:
             --dry-run=client -o yaml | kubectl apply -f -
 
       - uses: imranismail/setup-kustomize@v3
+
+      - name: Fijar namespace dinamico
+        working-directory: ${{ inputs.manifests-path }}
+        run: kustomize edit set namespace ${{ inputs.namespace }}
+      
+      - name: Sustituir variables
+        working-directory: ${{ inputs.manifests-path }}
+        env:
+          APP_NAME: ${{ inputs.deployment-name }}
+          DB_NAME: ${{ inputs.db_name }}
+          s3_BUCKET_NAME: ${{ inputs.s3-bucket-name }}
+          INGRESS_HOST: ${{ inputs.ingress-host }}
+        run: |
+          command -v envsubst >/dev/null || (sudo apt-get update -y && sudo apt-get install gettext-base)
+
+          for value_change in ../../base/*.yaml; do
+            envsubst < "$value_change" > "$value_change.tmp" && mv "$value_change.tmp" "$value_change"
+          done 
+
+          envsubst < kustomization.yaml > kustomization.yaml.tmp && mv kustomization.yaml.tmp kustomization.yaml
 
       - name: Fijar tag de la imagen
         working-directory: ${{ inputs.manifests-path }}

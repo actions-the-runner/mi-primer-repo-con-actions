@@ -1,20 +1,20 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: nttdata-ingress
+  name: ${APP_NAME}-ingress
   annotations:
     kubernetes.io/ingress.class: "alb"
     alb.ingress.kubernetes.io/scheme: "internet-facing"
     alb.ingress.kubernetes.io/target-type: "ip"
 spec:
   rules:
-    - host: api.tu-dominio.com  
+    - host: ${INGRESS_HOST}
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: nttdata
+                name: ${APP_NAME}
                 port:
                   number: 8080

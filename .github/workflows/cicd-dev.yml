@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       deploy-target:
-        description: "Forzar destino (si no lo tocas, usa la variable DEPLOY_TARGET del repo)"
+        description: "Forzar destino"
         type: choice
         options: [onpremise, cloud]
 
@@ -99,6 +99,9 @@ jobs:
       manifests-external-repo: ${{ needs.setup.outputs.deploy_target == 'cloud' && vars.MANIFESTS_EXTERNAL_REPO || '' }}
       aws-region: ${{ vars.AWS_REGION }}
       eks-cluster-name: ${{ vars.EKS_CLUSTER_NAME }}
+      db-name: ${{ vars.DB_NAME }}
+      s3-bucket-name: ${{ vars.S3_BUCKET_NAME }}
+      ingress-host: ${{ vars.INGRESS_HOST }}
     secrets:
       SPRING_DATASOURCE_USERNAME: ${{ secrets.SPRING_DATASOURCE_USERNAME }}
       SPRING_DATASOURCE_PASSWORD: ${{ secrets.SPRING_DATASOURCE_PASSWORD }}

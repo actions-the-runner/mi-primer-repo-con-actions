@@ -1,29 +1,29 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nttdata
+  name: ${APP_NAME}
   labels:
-    app: nttdata
+    app: ${APP_NAME}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: nttdata
+      app: ${APP_NAME}
   template:
     metadata:
       labels:
-        app: nttdata
+        app: ${APP_NAME}
     spec:
       containers:
-        - name: nttdata
-          image: nttdata:placeholder
+        - name: ${APP_NAME}
+          image: ${APP_NAME}:placeholder
           ports:
             - containerPort: 8080
           envFrom:
             - configMapRef:
-                name: nttdata-config
+                name: ${APP_NAME}-config
             - secretRef:
-                name: nttdata-secret
+                name: ${APP_NAME}-secret
           resources:
             requests:
               cpu: "150m"
