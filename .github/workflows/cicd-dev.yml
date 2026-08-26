@@ -11,11 +11,26 @@ on:
         description: "Forzar destino (si no lo tocas, usa la variable DEPLOY_TARGET del repo)"
         type: choice
         options: [onpremise, cloud]
-env:
-  DEPLOY_TARGET: ${{ github.event.inputs.deploy-target || vars.DEPLOY_TARGET }}
 
 jobs:
+  setup:
+    name: Resolver destino
+    runs-on: ubuntu-latest
+    outputs:
+      deploy_target: ${{ steps.resolve.outputs.target }}
+    steps:
+      - name: Resolver DEPLOY_TARGET
+        id: resolve
+        run: |
+          TARGET="${{ github.event.inputs.deploy-target }}"
+          if [ -z "$TARGET" ]; then
+            TARGET="${{ vars.DEPLOY_TARGET }}"
+          fi
+          echo "Usando destino: $TARGET"
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: setup
     uses: ./.github/workflows/build.yml
 
   test:
@@ -26,7 +41,7 @@ jobs:
     needs: test
     uses: ./.github/workflows/package.yml
     with:
-      skip-tests: false
+      skip-tests: false 
 
   sonar-analysis:
     needs: package
@@ -45,17 +60,16 @@ jobs:
       NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
       NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
 
-
   docker-push:
-    needs: nexus-publish
+    needs: [setup, nexus-publish]
     uses: ./.github/workflows/docker-push.yml
     with:
-      target: ${{ env.DEPLOY_TARGET }}
+      target: ${{ needs.setup.outputs.deploy_target }}
       dockerhub-repository: ${{ vars.DOCKERHUB_REPOSITORY }}
       ecr-repository: ${{ vars.ECR_REPOSITORY }}
       aws-region: ${{ vars.AWS_REGION }}
       mutable-tag: dev
-      scan-image: ${{ env.DEPLOY_TARGET == 'cloud' }}
+      scan-image: ${{ needs.setup.outputs.deploy_target == 'cloud' }}
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -63,16 +77,16 @@ jobs:
 
 
   deploy:
-    needs: docker-push
-    uses: ./.github/workflows/k8s-deploy.yml
+    needs: [setup, docker-push]
+    uses: ./.github/workflows/deploy-k8s.yml
     with:
-      cluster-type: ${{ env.DEPLOY_TARGET == 'cloud' && 'eks' || 'minikube' }}
-      runner: ${{ env.DEPLOY_TARGET == 'cloud' && 'ubuntu-latest' || 'self-hosted' }}
-      namespace: ${{ env.DEPLOY_TARGET == 'cloud' && vars.NAMESPACE_CLOUD || vars.NAMESPACE_ONPREM }}
+      cluster-type: ${{ needs.setup.outputs.deploy_target == 'cloud' && 'eks' || 'minikube' }}
+      runner: ${{ needs.setup.outputs.deploy_target == 'cloud' && 'ubuntu-latest' || 'self-hosted' }}
+      namespace: ${{ needs.setup.outputs.deploy_target == 'cloud' && vars.NAMESPACE_CLOUD || vars.NAMESPACE_ONPREM }}
       deployment-name: ${{ vars.APP_NAME }}
       image: ${{ needs.docker-push.outputs.image }}
-      manifests-path: ${{ env.DEPLOY_TARGET == 'cloud' && vars.MANIFESTS_PATH_CLOUD || vars.MANIFESTS_PATH_ONPREM }}
-      manifests-external-repo: ${{ env.DEPLOY_TARGET == 'cloud' && vars.MANIFESTS_EXTERNAL_REPO || '' }}
+      manifests-path: ${{ needs.setup.outputs.deploy_target == 'cloud' && vars.MANIFESTS_PATH_CLOUD || vars.MANIFESTS_PATH_ONPREM }}
+      manifests-external-repo: ${{ needs.setup.outputs.deploy_target == 'cloud' && vars.MANIFESTS_EXTERNAL_REPO || '' }}
       aws-region: ${{ vars.AWS_REGION }}
       eks-cluster-name: ${{ vars.EKS_CLUSTER_NAME }}
     secrets:
