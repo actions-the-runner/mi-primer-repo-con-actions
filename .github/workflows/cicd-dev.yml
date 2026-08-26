@@ -52,7 +52,7 @@ jobs:
 
   nexus-publish:
     needs: [package, sonar-analysis]
-    if: ${{ always() && !failure() && !cancelled() }}
+    if: ${{ always() && !failure() && !cancelled() && github.event_name == 'push' }}
     uses: ./.github/workflows/nexus-publish.yml
     with:
       runner: ${{ vars.NEXUS_RUNNER || 'ubuntu-latest' }}
@@ -62,13 +62,14 @@ jobs:
 
   docker-push:
     needs: [setup, nexus-publish]
+    if: ${{ always() && !failure() && !cancelled() && github.event_name == 'push' }}
     uses: ./.github/workflows/docker-push.yml
     permissions:
       contents: read
       id-token: write 
       security-events: write
     with:
-      target: ${{ needs.setup.outputs.target }}
+      target: ${{ needs.setup.outputs.deploy_target }}
       dockerhub-repository: ${{ vars.DOCKERHUB_REPOSITORY }}
       ecr-repository: ${{ vars.ECR_REPOSITORY }}
       aws-region: ${{ vars.AWS_REGION }}
@@ -82,6 +83,7 @@ jobs:
 
   deploy:
     needs: [setup, docker-push]
+    if: ${{ always() && !failure() && !cancelled() && github.event_name == 'push' }}
     uses: ./.github/workflows/k8s-deploy.yml
     permissions:
       contents: read
