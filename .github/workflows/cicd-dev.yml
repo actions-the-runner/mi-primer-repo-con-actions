@@ -46,7 +46,7 @@ jobs:
   sonar-analysis:
     needs: package
     if: ${{ vars.ENABLE_SONAR == 'true' }}
-    uses: ./.github/workflows/sonar.yml
+    uses: ./.github/workflows/sonar-analize.yml
     secrets:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
