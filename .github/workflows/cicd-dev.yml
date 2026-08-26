@@ -68,7 +68,7 @@ jobs:
       id-token: write 
       security-events: write
     with:
-      target: ${{ needs.setup.outputs.deploy_target }}
+      target: ${{ needs.setup.outputs.target }}
       dockerhub-repository: ${{ vars.DOCKERHUB_REPOSITORY }}
       ecr-repository: ${{ vars.ECR_REPOSITORY }}
       aws-region: ${{ vars.AWS_REGION }}
