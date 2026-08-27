@@ -33,7 +33,7 @@ on:
       eks-cluster-name:
         type: string
         default: ""
-      db_name:
+      db-name:
         type: string
         default: ""
       s3-bucket-name:
