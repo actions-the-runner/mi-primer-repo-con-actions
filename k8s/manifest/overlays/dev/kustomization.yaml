@@ -3,12 +3,12 @@ kind: Kustomization
 resources:
   - ../../base
 replicas:
-  - name: ${APPNAME}
+  - name: ${APP_NAME}
     count: 1
 patches:
   - target:
       kind: ConfigMap
-      name: ${APPNAME}-config
+      name: ${APP_NAME}-config
     patch: |-
       - op: add
         path: /data/SPRING_JPA_HIBERNATE_DDL_AUTO
@@ -24,7 +24,7 @@ patches:
         value: "${S3_BUCKET_NAME}"
   - target:
       kind: Ingress
-      name: ${APPNAME}-ingress
+      name: ${APP_NAME}-ingress
     patch: |-
       - op: replace
         path: /spec/rules/0/host
